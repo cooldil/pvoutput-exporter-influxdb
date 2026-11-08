@@ -1,0 +1,20 @@
+services:
+  pvoutput-exporter:
+    build: .
+    image: pvoutput-exporter:latest
+    container_name: pvoutput-exporter
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./config.yaml:/config/config.yaml:ro
+      - pvoutput-state:/data
+    # If InfluxDB runs in another compose project, join its network so "influxdb" resolves:
+    # networks: [influx]
+
+volumes:
+  pvoutput-state:
+
+# networks:
+#   influx:
+#     external: true
+#     name: <your influxdb network>

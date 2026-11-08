@@ -1,0 +1,81 @@
+# Copy to config.yaml and edit the "signals" section to match how your Modbus logger
+# writes to InfluxDB. ${VAR} and ${VAR:-default} are filled in from the environment (.env).
+
+# Must match the timezone set on your PVOutput system; daily energy resets at local midnight.
+timezone: ${TZ:-UTC}
+
+pvoutput:
+  api_key: ${PVOUTPUT_API_KEY}
+  system_id: ${PVOUTPUT_SYSTEM_ID}
+  interval_minutes: 5          # must match "Status Interval" in your PVOutput system settings
+  upload_delay_seconds: 60     # wait this long after an interval ends so the logger has written it
+  batch_size: 30               # statuses per request (30 max; donors can use 100)
+  max_backfill_days: 13        # PVOutput rejects statuses older than 14 days
+  initial_backfill_hours: 0    # on the very first run, also upload this many past hours
+  dry_run: false
+
+influxdb:
+  version: ${INFLUX_VERSION:-2}  # 1 = InfluxQL (database), 2 = Flux (org/bucket/token)
+  url: ${INFLUX_URL:-http://influxdb:8086}
+  verify_ssl: true
+  # --- 2.x ---
+  token: ${INFLUX_TOKEN}
+  org: ${INFLUX_ORG}
+  bucket: ${INFLUX_BUCKET:-solaredge}
+  # --- 1.x ---
+  database: ${INFLUX_DATABASE:-solaredge}
+  username: ${INFLUX_USERNAME}
+  password: ${INFLUX_PASSWORD}
+
+# A counter reading older than this is treated as missing rather than reused.
+counter_max_age_minutes: 60
+
+# Where each value lives in InfluxDB. Each entry is:
+#   measurement: <measurement name>
+#   field:       <field name>
+#   tags:        {tag: value, ...}   optional, must narrow it down to a single series
+#   scale:       <multiplier>        optional; e.g. 1000 if stored in kWh/kW, -1 to flip a sign
+# Values must already have the SunSpec scale factors applied (SolarEdge changes the power
+# scale factor on the fly, so a fixed "scale" can't stand in for it).
+# Remove (or comment out) any signal you don't have; derived values that need it are skipped.
+# The names below follow the SolarEdge Modbus register names - replace them with yours.
+signals:
+  # Inverter's own (internal) production meter
+  inverter_power:              # W, AC output power
+    measurement: inverter
+    field: I_AC_Power
+  inverter_energy:             # Wh, lifetime AC energy counter
+    measurement: inverter
+    field: I_AC_Energy_WH
+
+  # External production meter (e.g. a second, non-SolarEdge PV inverter)
+  production_meter_power:      # W, must be positive while producing (use scale: -1 if not)
+    measurement: meter
+    field: M_AC_Power
+    tags: {meter: "2"}
+  production_meter_energy:     # Wh, lifetime counter of energy produced
+    measurement: meter
+    field: M_Exported          # some CT orientations count production as M_Imported
+    tags: {meter: "2"}
+
+  # Import/export (grid) meter
+  grid_power:                  # W, positive = exporting to grid, negative = importing
+    measurement: meter
+    field: M_AC_Power
+    tags: {meter: "1"}
+  grid_import_energy:          # Wh, lifetime energy imported from the grid
+    measurement: meter
+    field: M_Imported
+    tags: {meter: "1"}
+  grid_export_energy:          # Wh, lifetime energy exported to the grid
+    measurement: meter
+    field: M_Exported
+    tags: {meter: "1"}
+
+  # Optional extras
+  temperature:                 # deg C (v5)
+    measurement: inverter
+    field: I_Temp_Sink
+  voltage:                     # V (v6)
+    measurement: inverter
+    field: I_AC_VoltageAN
