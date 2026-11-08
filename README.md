@@ -20,7 +20,7 @@ a restart or an outage the exporter fills the gap (up to 13 days back, PVOutput'
 
 1. Copy the example files:
    ```bash
-   cp .env.example .env
+   cp env.example .env
    cp config.example.yaml config.yaml
    ```
 2. In `.env`, set your PVOutput API key and system ID (PVOutput → Settings), your timezone,
